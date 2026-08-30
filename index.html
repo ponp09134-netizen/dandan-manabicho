@@ -4341,7 +4341,7 @@ function dr2Question(){clearAsync();st.answered=false;st.humanAnswers={};st.huma
  st.replayFlashNums=(st.flashNums||[]).slice();
  st.replayOrderItems=(st.orderItems||[]).map(x=>String(x.term));
  st.replayOrderTarget=st.orderTarget||0;
- cpuPlan(opts,ans);const buttons=`<div class="dr2Choices">${opts.map((o,i)=>`<button type="button" data-a="${esc(o)}">${i+1}. ${esc(o)}</button>`).join('')}</div>`;
+ cpuPlan(opts,ans);const circled=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];const buttons=`<div class="dr2Choices">${opts.map((o,i)=>`<button type="button" data-a="${esc(o)}">${circled[i]||('('+String(i+1)+')')} ${esc(o)}</button>`).join('')}</div>`;
  if(g.id==='memory'){play.innerHTML=`<div class="dr2Memory" id="dr2MemoryWord">${esc(prompt)}</div><div class="dr2Small">👀 まずはことばを覚えて！</div><div id="dr2MemoryChoices" style="display:none">${buttons}</div>`;$('dr2Time').textContent='覚える';$('dr2TimerFill').style.width='100%';memoryTimer=setTimeout(()=>{memoryTimer=0;if(!st||st.answered)return;$('dr2MemoryWord').outerHTML='<div class="dr2MemoryBlank">❓ さっきのことばの意味は？</div>';$('dr2MemoryChoices').style.display='block';bindChoices();if(dr2HumanIndexes().length>=2)dr2SimulStatus();startTimer(g.sec)},1500)}
  else if(g.id==='hearing'){play.innerHTML=`<div class="dr2Q">👂 よく聞いて！</div><button type="button" id="dr2Replay">🔊 聞く／もう一度聞く</button><div class="dr2Small" id="dr2HearStatus">音声を再生します</div><div class="dr2Small">聞こえたことばの意味は？</div>${buttons}`;bindChoices();if(dr2HumanIndexes().length>=2)dr2SimulStatus();const replay=$('dr2Replay');replay.onclick=()=>{const ok=dr2Speak(prompt);const z=$('dr2HearStatus');if(z)z.textContent=ok?'🔊 再生しました':'⚠️ この環境では読み上げできません'};startTimer(g.sec);const ok=dr2Speak(prompt);const z=$('dr2HearStatus');if(z)z.textContent=ok?'🔊 再生中…':'⚠️ 「聞く」を押してね'}
  else if(g.id==='special'){play.innerHTML=`<div class="dr2Small">👁️ すき間を見て！</div><div id="dr2Peek" style="height:105px;background:#050505;border:5px solid #333;border-radius:20px;overflow:hidden;display:flex;align-items:center;justify-content:center"><div style="width:74px;overflow:hidden;border-left:3px solid #555;border-right:3px solid #555;text-align:center"><div style="font-size:34px;font-weight:1000;color:#fff;white-space:nowrap;transform:translateX(-20%)">${esc(prompt)}</div></div></div><div id="dr2PeekChoices" style="display:none">${buttons}</div>`;$('dr2Time').textContent='見る';$('dr2TimerFill').style.width='100%';memoryTimer=setTimeout(()=>{if(!st||st.answered)return;$('dr2Peek').innerHTML='<b style="color:white;font-size:28px">？</b>';$('dr2PeekChoices').style.display='block';bindChoices();if(dr2HumanIndexes().length>=2)dr2SimulStatus();startTimer(g.sec)},1600)}
@@ -5162,7 +5162,7 @@ function categoryKeyFromCsv(label){
 }
 function exportStudyCsv(){
   try{
-    const rows=[["名前","意味","カテゴリ"],...data.map(e=>[e.term||"",e.meaning||"",categoryLabelForCsv(e.cat)])];
+    const rows=[["名前","意味","カテゴリ","読み","メモ","関連・調べる言葉"],...data.map(e=>[e.term||"",e.meaning||"",categoryLabelForCsv(e.cat),e.reading||"",e.memo||"",e.researchWords||""])];
     const text='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
     const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -5194,11 +5194,21 @@ function previewStudyCsv(){
     const ni=head.findIndex(x=>['名前','単語','用語','term'].includes(x));
     const mi=head.findIndex(x=>['意味','説明','答え','meaning'].includes(x));
     const ci=head.findIndex(x=>['カテゴリ','カテゴリー','category'].includes(x));
+    const ri=head.findIndex(x=>['読み','よみ','reading'].includes(x));
+    const memoI=head.findIndex(x=>['メモ','自分のメモ','memo'].includes(x));
+    const researchI=head.findIndex(x=>['関連・調べる言葉','関連・調べる内容','調べたい内容','関連語','researchWords'].includes(x));
     if(ni<0||mi<0)throw new Error('1行目に「名前」「意味」の見出しが必要です。');
-    dandanCsvPreviewRows=rows.slice(1).map(r=>({term:String(r[ni]||'').trim(),meaning:String(r[mi]||'').trim(),catLabel:ci>=0?String(r[ci]||'').trim():''})).filter(x=>x.term);
+    dandanCsvPreviewRows=rows.slice(1).map(r=>({
+      term:String(r[ni]||'').trim(),
+      meaning:String(r[mi]||'').trim(),
+      catLabel:ci>=0?String(r[ci]||'').trim():'',
+      reading:ri>=0?String(r[ri]||'').trim():'',
+      memo:memoI>=0?String(r[memoI]||'').trim():'',
+      researchWords:researchI>=0?String(r[researchI]||'').trim():''
+    })).filter(x=>x.term);
     if(!dandanCsvPreviewRows.length)throw new Error('追加できるデータがありません。');
     const sample=dandanCsvPreviewRows.slice(0,8);
-    box.innerHTML=`<b>👀 読み込みプレビュー：${dandanCsvPreviewRows.length}件</b><div style="margin-top:8px;max-height:260px;overflow:auto">${sample.map((x,i)=>`<div style="padding:8px;border-top:1px solid #ddd"><b>${i+1}. ${esc(x.term)}</b><br><span>${esc(x.meaning)}</span><br><small>カテゴリ：${esc(x.catLabel||'言葉・表現')}</small></div>`).join('')}${dandanCsvPreviewRows.length>8?`<div class="hint">…ほか ${dandanCsvPreviewRows.length-8}件</div>`:''}</div>`;
+    box.innerHTML=`<b>👀 読み込みプレビュー：${dandanCsvPreviewRows.length}件</b><div style="margin-top:8px;max-height:260px;overflow:auto">${sample.map((x,i)=>`<div style="padding:8px;border-top:1px solid #ddd"><b>${i+1}. ${esc(x.term)}</b><br><span>${esc(x.meaning)}</span><br><small>カテゴリ：${esc(x.catLabel||'言葉・表現')}${x.reading?` ／ 読み：${esc(x.reading)}`:''}${x.memo?' ／ メモあり':''}${x.researchWords?' ／ 調べたい内容あり':''}</small></div>`).join('')}${dandanCsvPreviewRows.length>8?`<div class="hint">…ほか ${dandanCsvPreviewRows.length-8}件</div>`:''}</div>`;
     box.style.display='block';btn.style.display='block';const cancelBtn=document.getElementById('studyCsvCancelBtn');if(cancelBtn)cancelBtn.style.display='block';if(msg)msg.textContent='内容を確認してから「この一覧を学び帳へ追加」を押してください。';
   }catch(e){if(msg)msg.textContent='読み込みに失敗しました：'+e.message;}};r.readAsText(input.files[0],'utf-8');
 }
@@ -5206,7 +5216,7 @@ function importPreviewedStudyCsv(){
   const msg=document.getElementById('studyCsvMsg');if(!dandanCsvPreviewRows.length){if(msg)msg.textContent='先にCSVを選んでください。';return;}
   if(!confirm(`${dandanCsvPreviewRows.length}件を、現在開いている学び帳へ追加しますか？\n\n同じ名前・意味の項目は重複登録しません。`))return;
   const existing=new Set(data.map(e=>`${String(e.term||'').trim()}\u0000${String(e.meaning||'').trim()}`));let added=0,skipped=0;
-  dandanCsvPreviewRows.forEach((x,i)=>{const sig=`${x.term}\u0000${x.meaning}`;if(existing.has(sig)){skipped++;return;}existing.add(sig);data.unshift({id:Date.now()+i,createdAt:Date.now()+i,cat:categoryKeyFromCsv(x.catLabel),term:x.term,reading:'',meaning:x.meaning,memo:'',researchWords:'',difficulty:'normal'});added++;});
+  dandanCsvPreviewRows.forEach((x,i)=>{const sig=`${x.term}\u0000${x.meaning}`;if(existing.has(sig)){skipped++;return;}existing.add(sig);data.unshift({id:Date.now()+i,createdAt:Date.now()+i,cat:categoryKeyFromCsv(x.catLabel),term:x.term,reading:x.reading||'',meaning:x.meaning,memo:x.memo||'',researchWords:x.researchWords||'',difficulty:'normal'});added++;});
   localStorage.setItem('dandanStudy',JSON.stringify(data));
   if(typeof saveActiveNotebookSnapshot==='function')try{saveActiveNotebookSnapshot();}catch(e){}
   if(msg)msg.textContent=`追加 ${added}件${skipped?`／重複のためスキップ ${skipped}件`:''}。学び帳に保存しました！`;
