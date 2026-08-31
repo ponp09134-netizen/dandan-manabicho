@@ -3339,8 +3339,26 @@ const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&
 const fmt=s=>esc(s).replace(/\n/g,"<br>");
 const diffLabel=d=>d==="easy"?"🟢 かんたん":d==="hard"?"🔴 むずかしい":"🟡 ふつう";
 function renderList(){
- let q=search.value.toLowerCase(),a=data.filter(e=>(e.term+e.reading+e.meaning+e.memo+(e.researchWords||"")).toLowerCase().includes(q));
- entries.innerHTML=a.length?a.map(e=>`<div class="entry">${C[e.cat][0]} <b>${esc(e.term)}</b> ${e.reading?"（"+esc(e.reading)+"）":""}<div style="white-space:normal">${fmt(e.meaning||"意味は未入力")}</div>${e.memo?'<small>📝 '+fmt(e.memo)+'</small>':""}<div><span class="difficultyBadge">${diffLabel(e.difficulty)}</span></div><br><button onclick="speakEntryById(${e.id})">🔊読む</button> <button onclick="editEntry(${e.id})">✏️編集</button> <button onclick="researchEntry(${e.id})">🔎調べる</button> <button onclick="del(${e.id})">🗑️削除</button></div>`).join(""):"まだ保存されていません。";
+ const searchEl=document.getElementById("search");
+ const entriesEl=document.getElementById("entries");
+ if(!entriesEl)return;
+ const q=String(searchEl?.value||"").toLowerCase();
+ const list=Array.isArray(data)?data:[];
+ const a=list.filter(e=>{
+   const x=e||{};
+   return [x.term,x.reading,x.meaning,x.memo,x.researchWords]
+     .map(v=>String(v??""))
+     .join("")
+     .toLowerCase()
+     .includes(q);
+ });
+ entriesEl.innerHTML=a.length?a.map(e=>{
+   const x=e||{};
+   const category=C[x.cat]||["📘","","",""];
+   const id=Number(x.id);
+   const safeId=Number.isFinite(id)?id:0;
+   return `<div class="entry">${category[0]} <b>${esc(x.term||"")}</b> ${x.reading?"（"+esc(x.reading)+"）":""}<div style="white-space:normal">${fmt(x.meaning||"意味は未入力")}</div>${x.memo?'<small>📝 '+fmt(x.memo)+'</small>':""}<div><span class="difficultyBadge">${diffLabel(x.difficulty)}</span></div><br><button onclick="speakEntryById(${safeId})">🔊読む</button> <button onclick="editEntry(${safeId})">✏️編集</button> <button onclick="researchEntry(${safeId})">🔎調べる</button> <button onclick="del(${safeId})">🗑️削除</button></div>`;
+ }).join(""):"まだ保存されていません。";
 }
 
 
