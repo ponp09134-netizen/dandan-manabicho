@@ -2577,7 +2577,7 @@ body.print-sheet .meaning-label { color:#e04444 !important; }
 </div>
 </section>
 
-<section id="calendar" class="screen"><button onclick="go('home')">←戻る</button><h2>📅 学びカレンダー</h2><div class="calendarSummary" id="calendarSummary"></div><div class="calendarHead"><button onclick="moveCalendar(-1)">←前月</button><div class="calendarTitle" id="calendarTitle"></div><button onclick="moveCalendar(1)">翌月→</button></div><div class="calendarGrid" id="calendarGrid"></div><div class="calendarDetail" id="calendarDetail"><div class="box"><b>日付を押すと、その日の学びが見られます。</b></div></div></section>
+<section id="calendar" class="screen"><button onclick="go('home')">←戻る</button><h2>📅 学びカレンダー</h2><div class="calendarSummary" id="calendarSummary"></div><div class="calendarHead"><button onclick="moveCalendar(-1)">←前月</button><div class="calendarTitle" id="calendarTitle"></div><button onclick="moveCalendar(1)">翌月→</button></div><div class="calendarGrid" id="calendarGrid"></div><div class="calendarDetail" id="calendarDetail"><div class="box"><b>日付を押すと、その日の学びと千波さんの予定が見られます。</b></div></div></section>
 
 <section id="add" class="screen"><button onclick="go('home')">←戻る</button><div class="box"><h2>➕ 新しく保存</h2><label>担当</label>
 <div class="catSelectWrap"><img id="catPortrait" class="catPortrait" alt="担当キャラクター"><select id="cat" onchange="updateCatPortrait()"></select></div><label>漢字・言葉・テーマ</label><input id="term"><label>読み（任意）</label><input id="reading"><label>意味・説明</label><textarea id="meaning" placeholder="改行して段落を分けることもできます"></textarea><label>自分のメモ（任意）</label><textarea id="memo" placeholder="メモも改行できます"></textarea>
@@ -5223,17 +5223,35 @@ function getCalendarEvents(){
  practiceLogs.forEach(x=>{const date=normalizeDate(x.date)||isoLocalFromMs(x.id);if(date)ev.push({date,type:"🔥 実践",title:x.term||"アウトプット",sub:x.task||"すっとばし男"})});
  experienceData.forEach(x=>{const date=normalizeDate(x.date)||isoLocalFromMs(x.id);if(date)ev.push({date,type:"📝 体験",title:x.title||"体験記録",sub:x.type||"ダンダン体験帳"})});
  getChinamiTaught().forEach(x=>{const date=normalizeDate(x.date)||isoLocalFromMs(x.id);if(date)ev.push({date,type:"🌸 教えた",title:x.term||"千波さんに教えたこと",sub:"千波さん"})});
+ /* 千波さんの「ちなみに時計♪」で登録した予定も、同じlocalStorageから直接読み込む */
+ getChinamiPlans().forEach(p=>{
+   const date=normalizeDate(p.date);
+   if(date)ev.push({date,type:"🕰️ 予定",title:p.title||"予定",sub:`${p.time||"時刻未設定"}・千波さん${p.done?"・✅完了":""}`,calendarKind:"chinamiPlan",done:!!p.done,time:p.time||""});
+ });
  return ev;
 }
 function renderCalendar(){
  const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),ev=getCalendarEvents(),prefix=`${y}-${String(m+1).padStart(2,"0")}-`,monthEv=ev.filter(x=>x.date.startsWith(prefix));
- calendarTitle.textContent=`${y}年 ${m+1}月`;calendarSummary.innerHTML=`📚 今月の学び <b style="font-size:26px">＋${monthEv.length}件</b><br><span class="hint">知識・実践・体験・千波さんに教えたことをまとめて数えます。</span>`;
+ const monthPlans=monthEv.filter(x=>x.calendarKind==="chinamiPlan"),monthStudy=monthEv.filter(x=>x.calendarKind!=="chinamiPlan");
+ calendarTitle.textContent=`${y}年 ${m+1}月`;calendarSummary.innerHTML=`📚 今月の学び <b style="font-size:26px">＋${monthStudy.length}件</b>　🕰️ 千波さんの予定 <b style="font-size:26px">${monthPlans.length}件</b><br><span class="hint">「ちなみに時計♪」で登録・変更した予定が、このカレンダーにも自動で反映されます。</span>`;
  const dows=["日","月","火","水","木","金","土"];let html=dows.map(x=>`<div class="calDow">${x}</div>`).join("");
  const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),today=todayISO();for(let i=0;i<first;i++)html+='<div class="calDay empty"></div>';
- for(let d=1;d<=days;d++){const date=`${prefix}${String(d).padStart(2,"0")}`,count=monthEv.filter(x=>x.date===date).length;html+=`<button class="calDay ${count?'has':''} ${date===today?'today':''}" onclick="showCalendarDay('${date}')"><span class="calNum">${d}</span>${count?`<span class="calCount">📚＋${count}</span>`:""}</button>`}calendarGrid.innerHTML=html;
+ for(let d=1;d<=days;d++){
+   const date=`${prefix}${String(d).padStart(2,"0")}`,dayEv=monthEv.filter(x=>x.date===date),studyCount=dayEv.filter(x=>x.calendarKind!=="chinamiPlan").length,planCount=dayEv.filter(x=>x.calendarKind==="chinamiPlan").length;
+   html+=`<button class="calDay ${(studyCount||planCount)?'has':''} ${date===today?'today':''}" onclick="showCalendarDay('${date}')"><span class="calNum">${d}</span>${studyCount?`<span class="calCount">📚＋${studyCount}</span>`:""}${planCount?`<span class="calCount">🕰️${planCount}件</span>`:""}</button>`
+ }calendarGrid.innerHTML=html;
 }
-function moveCalendar(n){calendarCursor.setMonth(calendarCursor.getMonth()+n);renderCalendar();calendarDetail.innerHTML='<div class="box"><b>日付を押すと、その日の学びが見られます。</b></div>'}
-function showCalendarDay(date){const a=getCalendarEvents().filter(x=>x.date===date),label=date.replaceAll("-","/");calendarDetail.innerHTML=`<div class="box"><h3>📅 ${label}　＋${a.length}件</h3>${a.length?a.map(x=>`<div class="calDetailItem"><b>${esc(x.type)}　${esc(x.title)}</b><small>${esc(x.sub)}</small></div>`).join(""):"この日の記録はまだありません。"}</div>`}
+function moveCalendar(n){calendarCursor.setMonth(calendarCursor.getMonth()+n);renderCalendar();calendarDetail.innerHTML='<div class="box"><b>日付を押すと、その日の学びと千波さんの予定が見られます。</b></div>'}
+function showCalendarDay(date){
+ const a=getCalendarEvents().filter(x=>x.date===date),label=date.replaceAll("-","/"),study=a.filter(x=>x.calendarKind!=="chinamiPlan"),plans=a.filter(x=>x.calendarKind==="chinamiPlan").sort((x,y)=>String(x.time).localeCompare(String(y.time)));
+ const planHtml=plans.length?`<h3 style="margin-top:18px">🕰️ 千波さんの予定</h3>${plans.map(x=>`<div class="calDetailItem"><b>${esc(x.time||"")}　${esc(x.title)}</b><small>${x.done?'✅ 完了':'🌸 これから・未完了'}　「ちなみに時計♪」と連動</small></div>`).join("")}`:'<div class="hint" style="margin-top:12px">🕰️ この日の千波さんの予定はありません。</div>';
+ const studyHtml=study.length?`<h3>📚 学び ＋${study.length}件</h3>${study.map(x=>`<div class="calDetailItem"><b>${esc(x.type)}　${esc(x.title)}</b><small>${esc(x.sub)}</small></div>`).join("")}`:'<div class="hint">📚 この日の学びの記録はまだありません。</div>';
+ calendarDetail.innerHTML=`<div class="box"><h3>📅 ${label}</h3>${studyHtml}${planHtml}<button type="button" style="margin-top:14px" onclick="openChinamiPlansFromCalendar('${date}')">🌸 千波さんの時計で予定を見る</button></div>`
+}
+function openChinamiPlansFromCalendar(date){
+ go('chinamiClock');
+ setTimeout(()=>{const el=document.getElementById('chinamiPlanDate');if(el){el.value=date;renderChinamiPlans();}document.getElementById('chinamiPlanList')?.scrollIntoView({behavior:'smooth',block:'center'});},60);
+}
 
 
 // ===== 学び帳 CSV 一括入出力 =====
