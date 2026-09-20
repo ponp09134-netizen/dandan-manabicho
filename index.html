@@ -3149,7 +3149,7 @@ body.print-sheet .meaning-label { color:#e04444 !important; }
   <button type="button" onclick="printSelectedDeckBook()" style="margin-top:8px;width:100%">🔥 選んだデッキをPDF用ページにする</button>
 </div>
 <button id="makeBookPdfBtn" style="width:100%;margin-top:14px" onclick="event.stopPropagation(); createNormalLearningBookIndependent(); return false;">📄 PDF用ページを作る</button>
-<p class="hint">※ PDF用ページが別タブで開きます。ページ上部の「🖨️ 印刷する」を押してください。iPhoneでは自動印刷を使わず、タップ操作で印刷画面を開く方式です。</p>
+<p class="hint">※ 別タブは開きません。同じ画面に印刷プレビューを表示します。「🖨️ 印刷 / PDF保存」を押してください。iPhoneでも空白タブを使わない方式です。</p>
 </div>
 </section>
 
@@ -6910,14 +6910,66 @@ function bookShell(title,body,subtitle=''){
 </body></html>`;
 }
 function openBook(html){
- const w=window.open("","_blank");
- if(!w){
-   alert("PDF用ページを開けませんでした。Safari / Chrome のポップアップを許可して、もう一度押してください。");
-   return;
+ // iPhone/Safariで空白タブになる問題を避けるため、別タブは使わず
+ // 現在のページ上に印刷専用プレビューを表示する。
+ let overlay=document.getElementById("dandanPrintOverlay");
+ if(!overlay){
+   overlay=document.createElement("div");
+   overlay.id="dandanPrintOverlay";
+   document.body.appendChild(overlay);
  }
- w.document.open();
- w.document.write(html);
- w.document.close();
+ let style=document.getElementById("dandanSamePagePrintStyle");
+ if(!style){
+   style=document.createElement("style");
+   style.id="dandanSamePagePrintStyle";
+   style.textContent=`
+#dandanPrintOverlay{display:none;position:fixed;inset:0;z-index:2147483647;background:#eef1f5;overflow:auto;padding:12px}
+#dandanPrintOverlay.open{display:block}
+#dandanPrintToolbar{position:sticky;top:0;z-index:2;background:#fff;border:1px solid #ccc;border-radius:14px;padding:10px;margin:0 auto 12px;max-width:900px;box-shadow:0 3px 14px #0002}
+#dandanPrintToolbar button{font-size:16px;padding:10px 14px;margin:3px;border:2px solid #333;border-radius:10px;background:#fff;font-weight:700}
+#dandanPrintPaper{background:#fff;color:#222;max-width:900px;margin:0 auto;padding:18px;border-radius:10px;box-shadow:0 2px 14px #0002;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP","Yu Gothic",sans-serif;line-height:1.75}
+#dandanPrintPaper h1{font-size:26px;border-bottom:4px solid #333;padding-bottom:8px}
+#dandanPrintPaper h2{font-size:20px;margin:0 0 8px}
+#dandanPrintPaper .card{border:2px solid #777;border-radius:14px;padding:16px;margin:0 0 15px;break-inside:avoid}
+#dandanPrintPaper .tag{font-size:12px;border:1px solid #777;border-radius:999px;padding:3px 8px;display:inline-block;margin:5px 4px 5px 0}
+#dandanPrintPaper .answer{margin-top:10px;padding-top:10px;border-top:1px dashed #999}
+#dandanPrintPaper .blank{height:52px;border-bottom:1px solid #aaa;margin:12px 0}
+#dandanPrintPaper .meta{color:#666;margin-bottom:16px}
+#dandanPrintPaper .legend{font-weight:800;margin:8px 0 20px}
+#dandanPrintPaper .day{padding-left:12px;margin:16px 0;break-inside:avoid}
+#dandanPrintPaper .count{font-size:28px;font-weight:800}
+@media print{
+ @page{size:A4;margin:15mm}
+ body > *:not(#dandanPrintOverlay){display:none !important}
+ #dandanPrintOverlay{display:block !important;position:static !important;inset:auto !important;overflow:visible !important;background:#fff !important;padding:0 !important}
+ #dandanPrintToolbar{display:none !important}
+ #dandanPrintPaper{display:block !important;max-width:none !important;margin:0 !important;padding:0 !important;border-radius:0 !important;box-shadow:none !important}
+}
+`;
+   document.head.appendChild(style);
+ }
+ const parsed=new DOMParser().parseFromString(html,"text/html");
+ const oldControls=parsed.querySelectorAll(".noPrint");
+ oldControls.forEach(x=>x.remove());
+ const title=parsed.title||"ダンダン学びBOOK";
+ overlay.innerHTML=`<div id="dandanPrintToolbar"><b>📕 ${bookEsc(title)}</b><br><button type="button" onclick="window.print()">🖨️ 印刷 / PDF保存</button><button type="button" onclick="closeDandanPrintPreview()">← 学び帳に戻る</button><div style="font-size:13px;margin-top:6px">iPhone：［印刷 / PDF保存］を押し、印刷プレビューから共有して「ファイルに保存」できます。</div></div><div id="dandanPrintPaper"></div>`;
+ const paper=overlay.querySelector("#dandanPrintPaper");
+ // 元のBOOK用CSSの色指定などを引き継ぐ
+ const sourceStyles=[...parsed.querySelectorAll("style")].map(x=>x.textContent).join("\n");
+ if(sourceStyles){
+   const localStyle=document.createElement("style");
+   localStyle.textContent=sourceStyles.replace(/body\s*\{/g,"#dandanPrintPaper{").replace(/\.noPrint[^}]*\}/g,"");
+   paper.appendChild(localStyle);
+ }
+ [...parsed.body.childNodes].forEach(n=>paper.appendChild(document.importNode(n,true)));
+ overlay.classList.add("open");
+ overlay.scrollTop=0;
+ document.documentElement.style.overflow="hidden";
+}
+function closeDandanPrintPreview(){
+ const overlay=document.getElementById("dandanPrintOverlay");
+ if(overlay) overlay.classList.remove("open");
+ document.documentElement.style.overflow="";
 }
 
 function createNormalLearningBookIndependent(){
