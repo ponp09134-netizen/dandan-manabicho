@@ -3149,7 +3149,7 @@ body.print-sheet .meaning-label { color:#e04444 !important; }
   <button type="button" onclick="printSelectedDeckBook()" style="margin-top:8px;width:100%">🔥 選んだデッキをPDF用ページにする</button>
 </div>
 <button id="makeBookPdfBtn" style="width:100%;margin-top:14px" onclick="event.stopPropagation(); createNormalLearningBookIndependent(); return false;">📄 PDF用ページを作る</button>
-<p class="hint">※ PDF用ページが別タブで開きます。iPhoneは「印刷」→プレビューの共有ボタン→「ファイルに保存」、Android/PCは「PDFとして保存」を使えます。</p>
+<p class="hint">※ PDF用ページが別タブで開きます。ページ上部の「🖨️ 印刷する」を押してください。iPhoneでは自動印刷を使わず、タップ操作で印刷画面を開く方式です。</p>
 </div>
 </section>
 
@@ -4886,7 +4886,7 @@ async function handleExperiencePhotos(input){
 }
 function experiencePrintHtml(items,title){
  const cards=items.map(x=>`<article><h2>${esc(x.type||"")} ${esc(x.title||"")}</h2><div class="date">${esc((x.date||"").replaceAll("-","/"))}</div>${x.photos&&x.photos.length?`<div class="photos">${x.photos.map(p=>`<img src="${p}">`).join("")}</div>`:""}${x.body?`<p>${fmt(x.body)}</p>`:""}${x.discovery?`<p><b>💡 発見・ひとこと</b><br>${fmt(x.discovery)}</p>`:""}</article>`).join("");
- return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.date{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}p{white-space:normal}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>iPhoneでは印刷プレビューの共有ボタンから「ファイルに保存」、Android / PCでは「PDFとして保存」を選べます。</p></div><h1>${esc(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+ return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.date{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}p{white-space:normal}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="this.disabled=true;this.textContent='印刷画面を開いています…';setTimeout(()=>{this.disabled=false;this.textContent='🖨️ 印刷する'},1200);window.focus();window.print()">🖨️ 印刷する</button><p>iPhone：このボタンをタップして印刷画面を開きます。PDFで残す場合は印刷プレビューを拡大して共有→「ファイルに保存」。<br>Android / PC：「PDFとして保存」を選べます。</p></div><h1>${esc(title)}</h1>${cards}</body></html>`;
 }
 
 /* ===== ダンダンミニゲームコレクション ===== */
@@ -6901,7 +6901,7 @@ function bookShell(title,body,subtitle=''){
  .noPrint button{font-size:16px;padding:10px 18px;border:2px solid #333;border-radius:12px;background:#fff;font-weight:700}
  @media print{.noPrint{display:none}}
  </style></head><body>
- <div class="noPrint"><button type="button" onclick="window.print()">🖨️ PDF保存 / 印刷</button><p style="font-size:14px;line-height:1.6">iPhone：印刷プレビューを開き、共有ボタンから「ファイルに保存」できます。<br>Android / PC：「PDFとして保存」を選べます。</p></div>
+ <div class="noPrint"><button type="button" onclick="this.disabled=true;this.textContent='印刷画面を開いています…';setTimeout(()=>{this.disabled=false;this.textContent='🖨️ 印刷する'},1200);window.focus();window.print()">🖨️ 印刷する</button><p style="font-size:14px;line-height:1.6"><b>iPhone：</b>このボタンをタップして印刷画面を開きます。PDFで残す場合は印刷プレビューを拡大して共有→「ファイルに保存」。<br><b>Android / PC：</b>「PDFとして保存」を選べます。</p></div>
  <h1>${bookEsc(title)}</h1>
  ${printStyle!=="normal"?`<div class="legend">${legend}</div>`:""}
  ${subtitle?`<div class="meta">${bookEsc(subtitle)}</div>`:''}
@@ -7144,7 +7144,7 @@ function renderDiaries(){
 }
 function diaryPrintHtml(items,title){
   const cards=items.map(d=>{const photos=diaryPhotosOf(d);return `<article><h2>${escapeDiaryHtml(d.date||"")} ${escapeDiaryHtml(d.mood||"")}</h2><div class="meta">${escapeDiaryHtml(d.category||"その他")}${d.favorite?" ／ ★お気に入り":""}</div>${photos.length?`<div class="photos">${photos.map(p=>`<img src="${p}">`).join("")}</div>`:""}${d.text?`<p>${escapeDiaryHtml(d.text).replace(/\n/g,"<br>")}</p>`:""}</article>`}).join("");
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${escapeDiaryHtml(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.meta{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>iPhoneでは印刷プレビューの共有ボタンから「ファイルに保存」、Android / PCでは「PDFとして保存」を選べます。</p></div><h1>${escapeDiaryHtml(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${escapeDiaryHtml(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.meta{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="this.disabled=true;this.textContent='印刷画面を開いています…';setTimeout(()=>{this.disabled=false;this.textContent='🖨️ 印刷する'},1200);window.focus();window.print()">🖨️ 印刷する</button><p>iPhone：このボタンをタップして印刷画面を開きます。PDFで残す場合は印刷プレビューを拡大して共有→「ファイルに保存」。<br>Android / PC：「PDFとして保存」を選べます。</p></div><h1>${escapeDiaryHtml(title)}</h1>${cards}</body></html>`;
 }
 function openDiaryPrint(items,title){if(!items.length){alert("日記がありません。");return}const w=window.open("","_blank");if(!w){alert("印刷画面を開けませんでした。ブラウザのポップアップ設定を確認してください。");return}w.document.open();w.document.write(diaryPrintHtml(items,title));w.document.close();}
 function printDiary(id){const d=getDiaries().find(x=>x.id===id);if(d)openDiaryPrint([d],`ダンダン学び帳_日記_${d.date||"記録"}`);}
