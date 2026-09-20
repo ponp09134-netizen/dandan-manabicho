@@ -3108,7 +3108,7 @@ body.print-sheet .meaning-label { color:#e04444 !important; }
 <button onclick="go('home')">←戻る</button>
 <h2>📕 学びBOOKを作る</h2>
 <div class="box">
-<p class="hint">今まで保存した学びから、自分専用のPDFを作れます。出力後にブラウザの「PDFとして保存」を選んでください。</p>
+<p class="hint">今まで保存した学びから、自分専用のPDF用ページを作れます。iPhoneでは印刷プレビューから共有→「ファイルに保存」、Android/PCでは「PDFとして保存」を選べます。</p>
 <label>出力するBOOK</label>
 <select id="bookType">
 <option value="reference">📚 参考書 — 名前・読み・意味・メモ</option>
@@ -3149,7 +3149,7 @@ body.print-sheet .meaning-label { color:#e04444 !important; }
   <button type="button" onclick="printSelectedDeckBook()" style="margin-top:8px;width:100%">🔥 選んだデッキをPDF用ページにする</button>
 </div>
 <button id="makeBookPdfBtn" style="width:100%;margin-top:14px" onclick="event.stopPropagation(); createNormalLearningBookIndependent(); return false;">📄 PDF用ページを作る</button>
-<p class="hint">※ PDF用ページが別タブで開きます。そこで「印刷 / PDFとして保存」を押します。</p>
+<p class="hint">※ PDF用ページが別タブで開きます。iPhoneは「印刷」→プレビューの共有ボタン→「ファイルに保存」、Android/PCは「PDFとして保存」を使えます。</p>
 </div>
 </section>
 
@@ -3877,7 +3877,36 @@ function escapeNotebookHtml(v){
   return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
-function exportCurrentNotebook(){
+// ===== iPhone / Android 共通：ファイル保存 =====
+function dandanIsIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+async function dandanSaveBlob(blob,fileName,shareTitle='ダンダン学び帳'){
+  // iPhone/iPad は共有シート経由を優先。「ファイルに保存」が使えます。
+  try{
+    const file=new File([blob],fileName,{type:blob.type||'application/octet-stream'});
+    if(dandanIsIOS() && navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({title:shareTitle,files:[file]});
+      return {ok:true,method:'share'};
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return {ok:false,cancelled:true};
+  }
+  // Android / PC / 共有非対応ブラウザは通常ダウンロード。
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fileName;a.style.display='none';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    return {ok:true,method:'download'};
+  }catch(e){ return {ok:false,error:e}; }
+}
+function dandanSaveGuide(method){
+  return method==='share' ? '共有画面が開きました。「ファイルに保存」などを選んで保存してください。' : 'ファイルを書き出しました。';
+}
+
+async function exportCurrentNotebook(){
   saveActiveNotebookSnapshot();
   const book=getActiveNotebook();
   if(!book)return;
@@ -3889,13 +3918,10 @@ function exportCurrentNotebook(){
     notebook:{name:book.name,data:book.data}
   };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  const safe=(book.name||"学び帳").replace(/[\\/:*?"<>|]/g,"_");
-  a.download=`ダンダン学び帳_${safe}_バックアップ.json`;
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  notebookMessage(`「${book.name}」を書き出しました。`);
+  const safe=(book.name||"学び帳").replace(/[\/:*?"<>|]/g,"_");
+  const result=await dandanSaveBlob(blob,`ダンダン学び帳_${safe}_バックアップ.json`,`「${book.name}」のバックアップ`);
+  if(result.ok) notebookMessage(`「${book.name}」：${dandanSaveGuide(result.method)}`);
+  else if(!result.cancelled) notebookMessage(`「${book.name}」の書き出しに失敗しました。`);
 }
 
 function importNotebookAsNew(){
@@ -4860,7 +4886,7 @@ async function handleExperiencePhotos(input){
 }
 function experiencePrintHtml(items,title){
  const cards=items.map(x=>`<article><h2>${esc(x.type||"")} ${esc(x.title||"")}</h2><div class="date">${esc((x.date||"").replaceAll("-","/"))}</div>${x.photos&&x.photos.length?`<div class="photos">${x.photos.map(p=>`<img src="${p}">`).join("")}</div>`:""}${x.body?`<p>${fmt(x.body)}</p>`:""}${x.discovery?`<p><b>💡 発見・ひとこと</b><br>${fmt(x.discovery)}</p>`:""}</article>`).join("");
- return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.date{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}p{white-space:normal}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>Androidでは印刷画面から「PDFとして保存」を選べます。</p></div><h1>${esc(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+ return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.date{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}p{white-space:normal}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>iPhoneでは印刷プレビューの共有ボタンから「ファイルに保存」、Android / PCでは「PDFとして保存」を選べます。</p></div><h1>${esc(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
 }
 
 /* ===== ダンダンミニゲームコレクション ===== */
@@ -6579,7 +6605,7 @@ function getDandanBackupKeys(){
   return [...new Set(keys)];
 }
 
-function exportDandanBackup(){
+async function exportDandanBackup(){
   if(!confirm("現在のすべての学び帳・日記・体験帳をバックアップファイルとして書き出してもよろしいですか？\n\n保存データそのものは削除・変更されません。")) return;
   if(typeof saveActiveNotebookSnapshot==="function") saveActiveNotebookSnapshot();
   const msg = document.getElementById("backupMsg");
@@ -6604,21 +6630,19 @@ function exportDandanBackup(){
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,"0");
     const day = String(d.getDate()).padStart(2,"0");
     const hh = String(d.getHours()).padStart(2,"0");
     const mm = String(d.getMinutes()).padStart(2,"0");
-    a.download = `ダンダン学び帳_バックアップ_${y}${m}${day}_${hh}${mm}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    const result = await dandanSaveBlob(blob, `ダンダン学び帳_バックアップ_${y}${m}${day}_${hh}${mm}.json`, "ダンダン学び帳 バックアップ");
+    if(!result.ok){
+      if(result.cancelled){ if(msg) msg.textContent="書き出しをキャンセルしました。"; return; }
+      throw result.error || new Error("保存できませんでした");
+    }
 
-    if(msg) msg.textContent = `バックアップを書き出しました。保存キー ${keys.length} 件です。`;
+    if(msg) msg.textContent = `${dandanSaveGuide(result.method)} 保存キー ${keys.length} 件です。`; 
   }catch(e){
     if(msg) msg.textContent = "バックアップの書き出しに失敗しました：" + e.message;
   }
@@ -6877,7 +6901,7 @@ function bookShell(title,body,subtitle=''){
  .noPrint button{font-size:16px;padding:10px 18px;border:2px solid #333;border-radius:12px;background:#fff;font-weight:700}
  @media print{.noPrint{display:none}}
  </style></head><body>
- <div class="noPrint"><button type="button" onclick="window.print()">🖨️ 印刷 / PDFとして保存</button></div>
+ <div class="noPrint"><button type="button" onclick="window.print()">🖨️ PDF保存 / 印刷</button><p style="font-size:14px;line-height:1.6">iPhone：印刷プレビューを開き、共有ボタンから「ファイルに保存」できます。<br>Android / PC：「PDFとして保存」を選べます。</p></div>
  <h1>${bookEsc(title)}</h1>
  ${printStyle!=="normal"?`<div class="legend">${legend}</div>`:""}
  ${subtitle?`<div class="meta">${bookEsc(subtitle)}</div>`:''}
@@ -6888,7 +6912,7 @@ function bookShell(title,body,subtitle=''){
 function openBook(html){
  const w=window.open("","_blank");
  if(!w){
-   alert("PDF用ページを開けませんでした。Chromeのポップアップを許可して、もう一度押してください。");
+   alert("PDF用ページを開けませんでした。Safari / Chrome のポップアップを許可して、もう一度押してください。");
    return;
  }
  w.document.open();
@@ -7120,7 +7144,7 @@ function renderDiaries(){
 }
 function diaryPrintHtml(items,title){
   const cards=items.map(d=>{const photos=diaryPhotosOf(d);return `<article><h2>${escapeDiaryHtml(d.date||"")} ${escapeDiaryHtml(d.mood||"")}</h2><div class="meta">${escapeDiaryHtml(d.category||"その他")}${d.favorite?" ／ ★お気に入り":""}</div>${photos.length?`<div class="photos">${photos.map(p=>`<img src="${p}">`).join("")}</div>`:""}${d.text?`<p>${escapeDiaryHtml(d.text).replace(/\n/g,"<br>")}</p>`:""}</article>`}).join("");
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${escapeDiaryHtml(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.meta{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>Androidでは印刷画面から「PDFとして保存」を選べます。</p></div><h1>${escapeDiaryHtml(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${escapeDiaryHtml(title)}</title><style>@page{size:A4;margin:14mm}body{font-family:system-ui,-apple-system,sans-serif;color:#222;line-height:1.7}h1{border-bottom:3px solid #333;padding-bottom:8px}article{break-inside:avoid;border-bottom:1px solid #bbb;padding:0 0 18px;margin:0 0 22px}.meta{color:#666;font-weight:bold}.photos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.photos img{width:30%;max-height:220px;object-fit:cover;border-radius:8px}button{font-size:16px;padding:10px 16px}@media print{.noPrint{display:none}}</style></head><body><div class="noPrint"><button onclick="window.print()">📄 PDFとして保存／印刷</button><p>iPhoneでは印刷プレビューの共有ボタンから「ファイルに保存」、Android / PCでは「PDFとして保存」を選べます。</p></div><h1>${escapeDiaryHtml(title)}</h1>${cards}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`;
 }
 function openDiaryPrint(items,title){if(!items.length){alert("日記がありません。");return}const w=window.open("","_blank");if(!w){alert("印刷画面を開けませんでした。ブラウザのポップアップ設定を確認してください。");return}w.document.open();w.document.write(diaryPrintHtml(items,title));w.document.close();}
 function printDiary(id){const d=getDiaries().find(x=>x.id===id);if(d)openDiaryPrint([d],`ダンダン学び帳_日記_${d.date||"記録"}`);}
